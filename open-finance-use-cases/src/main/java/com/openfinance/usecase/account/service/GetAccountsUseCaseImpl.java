@@ -1,25 +1,31 @@
-package com.openfinance.usecase.account;
+package com.openfinance.usecase.account.service;
 
 import com.openfinance.core.domain.account.Account;
 import com.openfinance.core.events.account.AccountAccessedEvent;
+import com.openfinance.core.exceptions.BusinessRuleViolationException;
 import com.openfinance.core.port.IConsentValidationService;
 import com.openfinance.core.port.IExternalAccountService;
 import com.openfinance.core.port.IPaginationService;
 import com.openfinance.core.port.IRateLimitService;
 import com.openfinance.core.validation.PermissionValidationService;
-import com.openfinance.usecase.PaginationLinkBuilder;
+import com.openfinance.usecase.IEventPublisher;
+import com.openfinance.usecase.IUseCase;
+import com.openfinance.usecase.pagination.PaginationLinkBuilder;
 import com.openfinance.usecase.account.input.GetAccountsInput;
 import com.openfinance.usecase.account.output.GetAccountsOutput;
+import com.openfinance.usecase.pagination.PaginationInfo;
+import com.openfinance.usecase.pagination.PaginationLinks;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Objects;
+import java.time.LocalDateTime;
+import java.util.List;
 
-/**
- * Use case for retrieving accounts with pagination and filtering
- * Implements the /accounts endpoint logic according to Open Finance specification
- */
+@Slf4j
 @Service
-public class GetAccountsUseCase implements IUseCase<GetAccountsInput, GetAccountsOutput> {
+@RequiredArgsConstructor
+public class GetAccountsUseCaseImpl implements IUseCase<GetAccountsInput, GetAccountsOutput> {
 
     private final IConsentValidationService consentValidationService;
     private final IExternalAccountService externalAccountService;
@@ -29,53 +35,49 @@ public class GetAccountsUseCase implements IUseCase<GetAccountsInput, GetAccount
     private final IEventPublisher eventPublisher;
     private final PaginationLinkBuilder paginationLinkBuilder;
 
-    public GetAccountsUseCase(IConsentValidationService consentValidationService,
-                              IExternalAccountService externalAccountService,
-                              IPaginationService paginationService,
-                              IRateLimitService rateLimitService,
-                              PermissionValidationService permissionValidationService,
-                              IEventPublisher eventPublisher,
-                              PaginationLinkBuilder paginationLinkBuilder) {
-        this.consentValidationService = Objects.requireNonNull(consentValidationService);
-        this.externalAccountService = Objects.requireNonNull(externalAccountService);
-        this.paginationService = Objects.requireNonNull(paginationService);
-        this.rateLimitService = Objects.requireNonNull(rateLimitService);
-        this.permissionValidationService = Objects.requireNonNull(permissionValidationService);
-        this.eventPublisher = Objects.requireNonNull(eventPublisher);
-        this.paginationLinkBuilder = Objects.requireNonNull(paginationLinkBuilder);
-    }
-
     @Override
     public GetAccountsOutput execute(GetAccountsInput input) {
-        Objects.requireNonNull(input, "Input cannot be null");
+        log.info("Executing GetAccounts use case for consentId: {}, organizationId: {}, page: {}, pageSize: {}",
+                input.consentId(), input.organizationId(), input.page(), input.pageSize());
 
-        // 1. Validate rate limits
-        validateRateLimits(input);
+        try {
+            // 1. Validate rate limits first
+            validateRateLimits(input);
 
-        // 2. Validate consent and permissions
-        validateConsentAndPermissions(input);
+            // 2. Validate consent and permissions
+            validateConsentAndPermissions(input);
 
-        // 3. Validate pagination key if present
-        validatePaginationKey(input);
+            // 3. Validate and handle pagination key
+            validatePaginationKey(input);
 
-        // 4. Fetch accounts from external service
-        List<Account> accounts = fetchAccounts(input);
+            // 4. Fetch accounts from external service
+            List<Account> accounts = fetchAccounts(input);
+            log.debug("Fetched {} accounts from external service", accounts.size());
 
-        // 5. Calculate pagination information
-        PaginationInfo paginationInfo = buildPaginationInfo(input, accounts);
+            // 5. Calculate pagination information
+            PaginationInfo paginationInfo = buildPaginationInfo(input, accounts);
 
-        // 6. Record request for rate limiting (only count successful requests)
-        recordSuccessfulRequest(input);
+            // 6. Record successful request for rate limiting
+            recordSuccessfulRequest(input);
 
-        // 7. Publish domain event
-        publishAccountAccessEvent(input);
+            // 7. Publish domain events
+            publishAccountAccessEvent(input);
 
-        // 8. Build and return output
-        return GetAccountsOutput.builder()
-                .accounts(accounts)
-                .paginationInfo(paginationInfo)
-                .requestDateTime(LocalDateTime.now())
-                .build();
+            // 8. Build and return output
+            GetAccountsOutput output = GetAccountsOutput.builder()
+                    .accounts(accounts)
+                    .paginationInfo(paginationInfo)
+                    .requestDateTime(LocalDateTime.now())
+                    .build();
+
+            log.info("Successfully executed GetAccounts use case. Returned {} accounts", accounts.size());
+            return output;
+
+        } catch (Exception e) {
+            log.error("Error executing GetAccounts use case for consentId: {}, organizationId: {}",
+                    input.consentId(), input.organizationId(), e);
+            throw e;
+        }
     }
 
     /**
@@ -206,15 +208,4 @@ public class GetAccountsUseCase implements IUseCase<GetAccountsInput, GetAccount
         }
         return (int) Math.ceil((double) totalRecords / pageSize);
     }
-
-    /**
-     * Record for pagination links
-     */
-    public record PaginationLinks(
-            String selfLink,
-            String firstLink,
-            String prevLink,
-            String nextLink,
-            String lastLink
-    ) {}
 }

@@ -1,9 +1,9 @@
-package com.openfinance.usecase;
+package com.openfinance.usecase.pagination;
 
 import com.openfinance.core.enums.AccountType;
-import com.openfinance.usecase.account.GetAccountsUseCase;
 import com.openfinance.usecase.account.input.GetAccountsInput;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -14,34 +14,44 @@ import java.util.StringJoiner;
  * Service responsible for building pagination links for the accounts API
  * Following Open Finance Brasil pagination standards
  */
+@Getter
+@Slf4j
 @Component
 public class PaginationLinkBuilder {
 
+    /**
+     * -- GETTER --
+     *  Gets the configured base URL
+     */
     private final String baseUrl;
 
-    public PaginationLinkBuilder(@Value("${open-finance.api.base-url}") String baseUrl) {
-        this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+    public PaginationLinkBuilder(String baseUrl) {
+        this.baseUrl = normalizeBaseUrl(baseUrl);
+        log.debug("PaginationLinkBuilderService initialized with baseUrl: {}", this.baseUrl);
     }
 
     /**
      * Builds all pagination links for the accounts response
      */
-    public GetAccountsUseCase.PaginationLinks buildLinks(GetAccountsInput input,
-                                                         int totalPages,
-                                                         String paginationKey) {
+    public PaginationLinks buildLinks(GetAccountsInput input,
+                                      int totalPages,
+                                      String paginationKey) {
+        log.debug("Building pagination links for page {} of {}, paginationKey: {}",
+                input.page(), totalPages, paginationKey);
+
         String baseEndpoint = baseUrl + "/open-banking/accounts/v2/accounts";
 
-        return new GetAccountsUseCase.PaginationLinks(
-                buildSelfLink(baseEndpoint, input, paginationKey),
-                buildFirstLink(baseEndpoint, input, totalPages, paginationKey),
-                buildPrevLink(baseEndpoint, input, totalPages, paginationKey),
-                buildNextLink(baseEndpoint, input, totalPages, paginationKey),
-                buildLastLink(baseEndpoint, input, totalPages, paginationKey)
-        );
+        return PaginationLinks.builder()
+                .selfLink(buildSelfLink(baseEndpoint, input, paginationKey))
+                .firstLink(buildFirstLink(baseEndpoint, input, totalPages, paginationKey))
+                .prevLink(buildPrevLink(baseEndpoint, input, totalPages, paginationKey))
+                .nextLink(buildNextLink(baseEndpoint, input, totalPages, paginationKey))
+                .lastLink(buildLastLink(baseEndpoint, input, totalPages, paginationKey))
+                .build();
     }
 
     /**
-     * Builds the self link (current page)
+     * Builds the self link (current page) - Always mandatory
      */
     private String buildSelfLink(String baseEndpoint, GetAccountsInput input, String paginationKey) {
         return buildLink(baseEndpoint, input.page(), input.pageSize(),
@@ -54,7 +64,8 @@ public class PaginationLinkBuilder {
     private String buildFirstLink(String baseEndpoint, GetAccountsInput input,
                                   int totalPages, String paginationKey) {
         if (input.page() == 1 || totalPages == 0) {
-            return null; // Not required for first page
+            log.debug("First link not required - current page is first page or no pages");
+            return null;
         }
 
         return buildLink(baseEndpoint, 1, input.pageSize(),
@@ -62,12 +73,13 @@ public class PaginationLinkBuilder {
     }
 
     /**
-     * Builds the previous page link (mandatory if not first page)
+     * Builds the previous page link (mandatory if has previous page)
      */
     private String buildPrevLink(String baseEndpoint, GetAccountsInput input,
                                  int totalPages, String paginationKey) {
         if (input.page() <= 1 || totalPages == 0) {
-            return null; // No previous page
+            log.debug("Previous link not required - current page is first page or no pages");
+            return null;
         }
 
         return buildLink(baseEndpoint, input.page() - 1, input.pageSize(),
@@ -75,12 +87,13 @@ public class PaginationLinkBuilder {
     }
 
     /**
-     * Builds the next page link (mandatory if not last page)
+     * Builds the next page link (mandatory if has next page)
      */
     private String buildNextLink(String baseEndpoint, GetAccountsInput input,
                                  int totalPages, String paginationKey) {
         if (input.page() >= totalPages || totalPages == 0) {
-            return null; // No next page
+            log.debug("Next link not required - current page is last page or no pages");
+            return null;
         }
 
         return buildLink(baseEndpoint, input.page() + 1, input.pageSize(),
@@ -93,7 +106,8 @@ public class PaginationLinkBuilder {
     private String buildLastLink(String baseEndpoint, GetAccountsInput input,
                                  int totalPages, String paginationKey) {
         if (input.page() == totalPages || totalPages == 0) {
-            return null; // Not required for last page
+            log.debug("Last link not required - current page is last page or no pages");
+            return null;
         }
 
         return buildLink(baseEndpoint, totalPages, input.pageSize(),
@@ -104,8 +118,7 @@ public class PaginationLinkBuilder {
      * Builds a complete link with all required parameters
      */
     private String buildLink(String baseEndpoint, int page, int pageSize,
-                             AccountType accountType,
-                             String paginationKey) {
+                             AccountType accountType, String paginationKey) {
         StringJoiner params = new StringJoiner("&");
 
         // Always include page and page-size
@@ -122,7 +135,9 @@ public class PaginationLinkBuilder {
             params.add("pagination-key=" + urlEncode(paginationKey));
         }
 
-        return baseEndpoint + "?" + params.toString();
+        String fullLink = baseEndpoint + "?" + params.toString();
+        log.trace("Built link: {}", fullLink);
+        return fullLink;
     }
 
     /**
@@ -136,6 +151,16 @@ public class PaginationLinkBuilder {
     }
 
     /**
+     * Normalizes the base URL removing trailing slash
+     */
+    private String normalizeBaseUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            throw new IllegalArgumentException("Base URL cannot be null or empty");
+        }
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    /**
      * Validates if the base URL follows the expected pattern
      */
     public boolean isValidBaseUrl() {
@@ -144,10 +169,4 @@ public class PaginationLinkBuilder {
                 (baseUrl.startsWith("http://") || baseUrl.startsWith("https://"));
     }
 
-    /**
-     * Gets the configured base URL
-     */
-    public String getBaseUrl() {
-        return baseUrl;
-    }
 }

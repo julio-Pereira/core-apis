@@ -6,6 +6,7 @@ import com.openfinance.core.domain.transaction.Transaction;
 import com.openfinance.core.valueobjects.Amount;
 
 import java.util.Currency;
+import java.util.List;
 import java.util.Optional;
 
 /**
