@@ -23,7 +23,8 @@
 
 	<modules>
 		<module>open-finance-core-domain</module>
-	</modules>
+        <module>open-finance-use-cases</module>
+    </modules>
 
 	<dependencies>
 		<dependency>
