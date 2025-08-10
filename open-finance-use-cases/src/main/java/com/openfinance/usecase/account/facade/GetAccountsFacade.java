@@ -1,12 +1,11 @@
 package com.openfinance.usecase.account.facade;
 
-import com.openfinance.core.exceptions.BusinessRuleViolationException;
+
 import com.openfinance.usecase.IUseCase;
 import com.openfinance.usecase.account.input.GetAccountsInput;
 import com.openfinance.usecase.account.output.GetAccountsOutput;
-import com.openfinance.usecase.account.service.AccountAccessLoggingService;
 import com.openfinance.usecase.account.service.AccountsBusinessService;
-import com.openfinance.usecase.account.service.GetAccountsUseCaseImpl;
+import com.openfinance.usecase.utils.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -14,86 +13,37 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * Facade for Get Accounts operations
- * Provides a simplified interface and handles cross-cutting concerns like logging and metrics
+ * Simplified Facade using AOP for cross-cutting concerns
+ * All logging, metrics, and monitoring are handled automatically by aspects
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class GetAccountsFacade  {
+public class GetAccountsFacade {
 
-    private final GetAccountsUseCaseImpl getAccountsUseCase;
+    private final IUseCase<GetAccountsInput, GetAccountsOutput> getAccountsUseCase;
     private final AccountsBusinessService accountsBusinessService;
-    private final AccountAccessLoggingService loggingService;
-
-    private static final long SLA_THRESHOLD_MS = 1500; // High frequency endpoint SLA
 
     /**
-     * Executes the Get Accounts operation with full monitoring and logging
+     * Executes the Get Accounts operation
+     * Cross-cutting concerns (logging, metrics, SLA monitoring) handled automatically by AOP
      */
+    @AuditLog(operationType = "GET_ACCOUNTS", sensitiveData = true)
+    @MonitorPerformance(operationName = "GET_ACCOUNTS", warningThresholdMs = 1000)
+    @MonitorSLA(thresholdMs = 1500, endpoint = "/accounts", category = FrequencyCategory.HIGH)
+    @CollectMetrics(metricPrefix = "open_finance.accounts.get",
+            tags = {"endpoint=/accounts", "frequency=high"})
     public GetAccountsOutput getAccounts(GetAccountsInput input) {
-        long startTime = System.currentTimeMillis();
+        // Validate input parameters
+        accountsBusinessService.validateGetAccountsInput(input);
 
-        try {
-            // Log operation start
-            loggingService.logAccountAccessStart(input);
-
-            // Validate input parameters
-            long validationStartTime = System.currentTimeMillis();
-            accountsBusinessService.validateGetAccountsInput(input);
-            long validationTime = System.currentTimeMillis() - validationStartTime;
-
-            // Execute use case
-            long useCaseStartTime = System.currentTimeMillis();
-            GetAccountsOutput result = getAccountsUseCase.execute(input);
-            long useCaseTime = System.currentTimeMillis() - useCaseStartTime;
-
-            // Calculate total execution time
-            long totalExecutionTime = System.currentTimeMillis() - startTime;
-
-            // Log success and performance metrics
-            loggingService.logAccountAccessSuccess(input, result.getAccountCount(), totalExecutionTime);
-            loggingService.logPerformanceMetrics(
-                    "GET_ACCOUNTS",
-                    totalExecutionTime,
-                    validationTime,
-                    useCaseTime - validationTime, // External call time approximation
-                    validationTime
-            );
-
-            // Log compliance metrics
-            boolean withinSLA = totalExecutionTime <= SLA_THRESHOLD_MS;
-            loggingService.logComplianceMetrics(
-                    "/accounts",
-                    withinSLA,
-                    totalExecutionTime,
-                    input.organizationId(),
-                    result.getAccountCount()
-            );
-
-            if (!withinSLA) {
-                log.warn("SLA threshold exceeded for GET_ACCOUNTS operation. Expected: {}ms, Actual: {}ms",
-                        SLA_THRESHOLD_MS, totalExecutionTime);
-            }
-
-            return result;
-
-        } catch (BusinessRuleViolationException e) {
-            long totalExecutionTime = System.currentTimeMillis() - startTime;
-            loggingService.logAccountAccessFailure(input, e.getErrorCode(), e.getMessage(), totalExecutionTime);
-            throw e;
-
-        } catch (Exception e) {
-            long totalExecutionTime = System.currentTimeMillis() - startTime;
-            loggingService.logAccountAccessFailure(input, "INTERNAL_ERROR", e.getMessage(), totalExecutionTime);
-
-            log.error("Unexpected error in GetAccountsFacade for consentId: {}", input.consentId(), e);
-            throw new BusinessRuleViolationException("Internal error processing accounts request", e);
-        }
+        // Execute use case - all monitoring handled by aspects
+        return getAccountsUseCase.execute(input);
     }
 
     /**
      * Validates input and returns validation summary
+     * No cross-cutting concerns needed here, so no annotations
      */
     public InputValidationSummary validateInput(GetAccountsInput input) {
         try {
@@ -104,12 +54,12 @@ public class GetAccountsFacade  {
                     .validationMessage("Input validation passed")
                     .build();
 
-        } catch (BusinessRuleViolationException e) {
+        } catch (Exception e) {
             return InputValidationSummary.builder()
                     .valid(false)
                     .effectivePageSize(input.pageSize())
                     .validationMessage(e.getMessage())
-                    .errorCode(e.getErrorCode())
+                    .errorCode(extractErrorCode(e))
                     .build();
         }
     }
@@ -117,18 +67,45 @@ public class GetAccountsFacade  {
     /**
      * Gets operation health status
      */
+    @MonitorPerformance(operationName = "GET_HEALTH_STATUS", warningThresholdMs = 100)
     public OperationHealthStatus getHealthStatus() {
         return OperationHealthStatus.builder()
                 .operationName("GET_ACCOUNTS")
                 .endpoint("/accounts")
-                .slaThresholdMs(SLA_THRESHOLD_MS)
+                .slaThresholdMs(1500L)
                 .timestamp(LocalDateTime.now())
                 .build();
     }
 
     /**
-     * Record for input validation summary
+     * Batch validation for multiple inputs (demonstrating AOP scalability)
      */
+    @MonitorPerformance(operationName = "BATCH_VALIDATE", warningThresholdMs = 500)
+    @CollectMetrics(metricPrefix = "open_finance.accounts.batch_validate")
+    public BatchValidationResult validateBatch(java.util.List<GetAccountsInput> inputs) {
+        java.util.List<InputValidationSummary> results = inputs.stream()
+                .map(this::validateInput)
+                .toList();
+
+        long validCount = results.stream().mapToLong(r -> r.valid() ? 1 : 0).sum();
+
+        return BatchValidationResult.builder()
+                .totalInputs(inputs.size())
+                .validInputs((int) validCount)
+                .invalidInputs(inputs.size() - (int) validCount)
+                .validationResults(results)
+                .build();
+    }
+
+    // Helper method
+    private String extractErrorCode(Exception e) {
+        if (e instanceof com.openfinance.core.exceptions.BusinessRuleViolationException) {
+            return ((com.openfinance.core.exceptions.BusinessRuleViolationException) e).getErrorCode();
+        }
+        return "VALIDATION_ERROR";
+    }
+
+    // Records for return types
     @lombok.Builder
     public record InputValidationSummary(
             boolean valid,
@@ -137,14 +114,19 @@ public class GetAccountsFacade  {
             String errorCode
     ) {}
 
-    /**
-     * Record for operation health status
-     */
     @lombok.Builder
     public record OperationHealthStatus(
             String operationName,
             String endpoint,
             long slaThresholdMs,
             LocalDateTime timestamp
+    ) {}
+
+    @lombok.Builder
+    public record BatchValidationResult(
+            int totalInputs,
+            int validInputs,
+            int invalidInputs,
+            java.util.List<InputValidationSummary> validationResults
     ) {}
 }

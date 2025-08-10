@@ -14,9 +14,9 @@ import com.openfinance.core.valueobjects.BranchCode;
 import com.openfinance.core.valueobjects.CompeCode;
 import com.openfinance.usecase.account.input.GetAccountsInput;
 import com.openfinance.usecase.account.output.GetAccountsOutput;
-import com.openfinance.usecase.IEventPublisher;
 import com.openfinance.usecase.pagination.PaginationLinkBuilder;
 import com.openfinance.usecase.pagination.PaginationLinks;
+import com.openfinance.usecase.IEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,9 +60,6 @@ class GetAccountsUseCaseImplTest {
 
     private GetAccountsUseCaseImpl useCase;
 
-    private GetAccountsInput validInput;
-    private List<Account> mockAccounts;
-
     @BeforeEach
     void setUp() {
         useCase = new GetAccountsUseCaseImpl(
@@ -74,33 +71,22 @@ class GetAccountsUseCaseImplTest {
                 eventPublisher,
                 paginationLinkBuilder
         );
-
-        validInput = GetAccountsInput.builder()
-                .consentId("consent-123")
-                .organizationId("org-456")
-                .accountType(Optional.of(AccountType.CONTA_DEPOSITO_A_VISTA))
-                .page(1)
-                .pageSize(25)
-                .paginationKey(Optional.empty())
-                .xFapiInteractionId(UUID.randomUUID().toString())
-                .xFapiAuthDate(Optional.of("Sun, 10 Sep 2017 19:43:31 UTC"))
-                .xFapiCustomerIpAddress(Optional.of("192.168.1.1"))
-                .xCustomerUserAgent(Optional.of("Mozilla/5.0"))
-                .build();
-
-        mockAccounts = createMockAccounts();
     }
 
     @Test
-    @DisplayName("Should execute successfully with valid input")
-    void shouldExecuteSuccessfullyWithValidInput() {
-        // Arrange
-        setupSuccessfulMocks();
+    @DisplayName("Given valid input and successful dependencies when execute then return accounts successfully")
+    void givenValidInputAndSuccessfulDependencies_whenExecute_thenReturnAccountsSuccessfully() {
+        // GIVEN
+        GetAccountsInput validInput = createValidInputBuilder().build();
+        List<Account> mockAccounts = createMockAccounts();
+        PaginationLinks mockLinks = createMockPaginationLinks();
 
-        // Act
+        setupSuccessfulMocks(mockAccounts, mockLinks);
+
+        // WHEN
         GetAccountsOutput result = useCase.execute(validInput);
 
-        // Assert
+        // THEN
         assertThat(result).isNotNull();
         assertThat(result.accounts()).hasSize(2);
         assertThat(result.hasAccounts()).isTrue();
@@ -118,12 +104,13 @@ class GetAccountsUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Should throw exception when rate limit is exceeded")
-    void shouldThrowExceptionWhenRateLimitExceeded() {
-        // Arrange
+    @DisplayName("Given rate limit exceeded when execute then throw BusinessRuleViolationException")
+    void givenRateLimitExceeded_whenExecute_thenThrowBusinessRuleViolationException() {
+        // GIVEN
+        GetAccountsInput validInput = createValidInputBuilder().build();
         when(rateLimitService.isWithinRateLimit(anyString(), anyString())).thenReturn(false);
 
-        // Act & Assert
+        // WHEN & THEN
         assertThatThrownBy(() -> useCase.execute(validInput))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessageContaining("Rate limit exceeded");
@@ -134,13 +121,14 @@ class GetAccountsUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Should throw exception when consent is invalid")
-    void shouldThrowExceptionWhenConsentIsInvalid() {
-        // Arrange
+    @DisplayName("Given invalid consent when execute then throw BusinessRuleViolationException")
+    void givenInvalidConsent_whenExecute_thenThrowBusinessRuleViolationException() {
+        // GIVEN
+        GetAccountsInput validInput = createValidInputBuilder().build();
         when(rateLimitService.isWithinRateLimit(anyString(), anyString())).thenReturn(true);
         when(consentValidationService.isConsentValid(anyString())).thenReturn(false);
 
-        // Act & Assert
+        // WHEN & THEN
         assertThatThrownBy(() -> useCase.execute(validInput))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessageContaining("Invalid or unauthorized consent");
@@ -150,16 +138,17 @@ class GetAccountsUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Should throw exception when permission is not granted")
-    void shouldThrowExceptionWhenPermissionNotGranted() {
-        // Arrange
+    @DisplayName("Given permission not granted when execute then throw BusinessRuleViolationException")
+    void givenPermissionNotGranted_whenExecute_thenThrowBusinessRuleViolationException() {
+        // GIVEN
+        GetAccountsInput validInput = createValidInputBuilder().build();
         when(rateLimitService.isWithinRateLimit(anyString(), anyString())).thenReturn(true);
         when(consentValidationService.isConsentValid(anyString())).thenReturn(true);
         when(consentValidationService.hasPermission(anyString(), anyString())).thenReturn(false);
         doThrow(new BusinessRuleViolationException("Required permission not granted"))
                 .when(permissionValidationService).validateAccountsReadPermission(false);
 
-        // Act & Assert
+        // WHEN & THEN
         assertThatThrownBy(() -> useCase.execute(validInput))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessageContaining("Required permission not granted");
@@ -169,17 +158,19 @@ class GetAccountsUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Should handle empty accounts list gracefully")
-    void shouldHandleEmptyAccountsListGracefully() {
-        // Arrange
-        setupSuccessfulMocks();
-        when(externalAccountService.fetchAccounts(anyString(), any(), anyInt(), anyInt()))
-                .thenReturn(List.of());
+    @DisplayName("Given empty accounts list when execute then return empty result gracefully")
+    void givenEmptyAccountsList_whenExecute_thenReturnEmptyResultGracefully() {
+        // GIVEN
+        GetAccountsInput validInput = createValidInputBuilder().build();
+        List<Account> emptyAccounts = List.of();
+        PaginationLinks mockLinks = createMockPaginationLinks();
 
-        // Act
+        setupSuccessfulMocks(emptyAccounts, mockLinks);
+
+        // WHEN
         GetAccountsOutput result = useCase.execute(validInput);
 
-        // Assert
+        // THEN
         assertThat(result).isNotNull();
         assertThat(result.accounts()).isEmpty();
         assertThat(result.hasAccounts()).isFalse();
@@ -188,58 +179,64 @@ class GetAccountsUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Should handle pagination key validation correctly")
-    void shouldHandlePaginationKeyValidationCorrectly() {
-        // Arrange
-        GetAccountsInput inputWithPaginationKey = GetAccountsInput.builder()
-                .consentId("abc")
-                .organizationId("asjkdhasjhksad")
+    @DisplayName("Given valid pagination key when execute then validate pagination key correctly")
+    void givenValidPaginationKey_whenExecute_thenValidatePaginationKeyCorrectly() {
+        // GIVEN
+        GetAccountsInput inputWithPaginationKey = createValidInputBuilder()
                 .paginationKey(Optional.of("valid-pagination-key-123"))
                 .build();
+        List<Account> mockAccounts = createMockAccounts();
+        PaginationLinks mockLinks = createMockPaginationLinks();
 
-        setupSuccessfulMocks();
+        setupSuccessfulMocks(mockAccounts, mockLinks);
         when(paginationService.isValidPaginationKey("valid-pagination-key-123")).thenReturn(true);
 
-        // Act
+        // WHEN
         GetAccountsOutput result = useCase.execute(inputWithPaginationKey);
 
-        // Assert
+        // THEN
         assertThat(result).isNotNull();
         verify(paginationService).isValidPaginationKey("valid-pagination-key-123");
     }
 
     @Test
-    @DisplayName("Should handle invalid pagination key without failing")
-    void shouldHandleInvalidPaginationKeyWithoutFailing() {
-        // Arrange
-        GetAccountsInput inputWithInvalidKey = GetAccountsInput.builder()
+    @DisplayName("Given invalid pagination key when execute then continue processing without failing")
+    void givenInvalidPaginationKey_whenExecute_thenContinueProcessingWithoutFailing() {
+        // GIVEN
+        GetAccountsInput inputWithInvalidKey = createValidInputBuilder()
                 .paginationKey(Optional.of("invalid-pagination-key"))
                 .build();
+        List<Account> mockAccounts = createMockAccounts();
+        PaginationLinks mockLinks = createMockPaginationLinks();
 
-        setupSuccessfulMocks();
+        setupSuccessfulMocks(mockAccounts, mockLinks);
         when(paginationService.isValidPaginationKey("invalid-pagination-key")).thenReturn(false);
 
-        // Act
+        // WHEN
         GetAccountsOutput result = useCase.execute(inputWithInvalidKey);
 
-        // Assert
+        // THEN
         assertThat(result).isNotNull();
         assertThat(result.hasAccounts()).isTrue();
         verify(paginationService).isValidPaginationKey("invalid-pagination-key");
     }
 
     @Test
-    @DisplayName("Should throw exception when input is null")
-    void shouldThrowExceptionWhenInputIsNull() {
-        // Act & Assert
-        assertThatThrownBy(() -> useCase.execute(null))
+    @DisplayName("Given null input when execute then throw NullPointerException")
+    void givenNullInput_whenExecute_thenThrowNullPointerException() {
+        // GIVEN
+        GetAccountsInput nullInput = null;
+
+        // WHEN & THEN
+        assertThatThrownBy(() -> useCase.execute(nullInput))
                 .isInstanceOf(NullPointerException.class);
     }
 
     @Test
-    @DisplayName("Should handle external service failure gracefully")
-    void shouldHandleExternalServiceFailureGracefully() {
-        // Arrange
+    @DisplayName("Given external service failure when execute then throw BusinessRuleViolationException")
+    void givenExternalServiceFailure_whenExecute_thenThrowBusinessRuleViolationException() {
+        // GIVEN
+        GetAccountsInput validInput = createValidInputBuilder().build();
         when(rateLimitService.isWithinRateLimit(anyString(), anyString())).thenReturn(true);
         when(consentValidationService.isConsentValid(anyString())).thenReturn(true);
         when(consentValidationService.hasPermission(anyString(), anyString())).thenReturn(true);
@@ -248,7 +245,7 @@ class GetAccountsUseCaseImplTest {
         when(externalAccountService.fetchAccounts(anyString(), any(), anyInt(), anyInt()))
                 .thenThrow(new RuntimeException("External service unavailable"));
 
-        // Act & Assert
+        // WHEN & THEN
         assertThatThrownBy(() -> useCase.execute(validInput))
                 .isInstanceOf(BusinessRuleViolationException.class)
                 .hasMessageContaining("Failed to fetch accounts from external service");
@@ -257,40 +254,19 @@ class GetAccountsUseCaseImplTest {
         verify(rateLimitService, never()).recordRequest(anyString(), anyString());
     }
 
-    private void setupSuccessfulMocks() {
-        // Rate limiting
-        when(rateLimitService.isWithinRateLimit(anyString(), anyString())).thenReturn(true);
-        doNothing().when(rateLimitService).recordRequest(anyString(), anyString());
-
-        // Consent validation
-        when(consentValidationService.isConsentValid(anyString())).thenReturn(true);
-        when(consentValidationService.hasPermission(anyString(), anyString())).thenReturn(true);
-        doNothing().when(permissionValidationService).validateAccountsReadPermission(true);
-
-        // Pagination
-        when(paginationService.generatePaginationKey(anyString(), anyInt(), anyInt()))
-                .thenReturn("generated-pagination-key-123");
-        when(paginationService.isValidPaginationKey(anyString())).thenReturn(true);
-
-        // External service
-        when(externalAccountService.fetchAccounts(anyString(), any(), anyInt(), anyInt()))
-                .thenReturn(mockAccounts);
-
-        // Pagination links
-        PaginationLinks mockLinks =
-                PaginationLinks.builder()
-                        .selfLink("https://api.banco.com.br/open-banking/accounts/v2/accounts?page=1&page-size=25")
-                        .firstLink(null)
-                        .prevLink(null)
-                        .nextLink("https://api.banco.com.br/open-banking/accounts/v2/accounts?page=2&page-size=25")
-                        .lastLink("https://api.banco.com.br/open-banking/accounts/v2/accounts?page=5&page-size=25")
-                        .build();
-
-        when(paginationLinkBuilder.buildLinks(any(), anyInt(), anyString()))
-                .thenReturn(mockLinks);
-
-        // Event publisher
-        doNothing().when(eventPublisher).publish(any());
+    // Helper methods for test setup
+    private GetAccountsInput.GetAccountsInputBuilder createValidInputBuilder() {
+        return GetAccountsInput.builder() // Retorna o Builder
+                .consentId("consent-123")
+                .organizationId("org-456")
+                .accountType(Optional.of(AccountType.CONTA_DEPOSITO_A_VISTA))
+                .page(1)
+                .pageSize(25)
+                .paginationKey(Optional.empty())
+                .xFapiInteractionId(UUID.randomUUID().toString())
+                .xFapiAuthDate(Optional.of("Sun, 10 Sep 2017 19:43:31 UTC"))
+                .xFapiCustomerIpAddress(Optional.of("192.168.1.1"))
+                .xCustomerUserAgent(Optional.of("Mozilla/5.0")); 
     }
 
     private List<Account> createMockAccounts() {
@@ -321,5 +297,41 @@ class GetAccountsUseCaseImplTest {
                 .build();
 
         return List.of(account1, account2);
+    }
+
+    private PaginationLinks createMockPaginationLinks() {
+        return PaginationLinks.builder()
+                .selfLink("https://api.banco.com.br/open-banking/accounts/v2/accounts?page=1&page-size=25")
+                .firstLink(null)
+                .prevLink(null)
+                .nextLink("https://api.banco.com.br/open-banking/accounts/v2/accounts?page=2&page-size=25")
+                .lastLink("https://api.banco.com.br/open-banking/accounts/v2/accounts?page=5&page-size=25")
+                .build();
+    }
+
+    private void setupSuccessfulMocks(List<Account> accounts, PaginationLinks links) {
+        // Rate limiting
+        when(rateLimitService.isWithinRateLimit(anyString(), anyString())).thenReturn(true);
+        doNothing().when(rateLimitService).recordRequest(anyString(), anyString());
+
+        // Consent validation
+        when(consentValidationService.isConsentValid(anyString())).thenReturn(true);
+        when(consentValidationService.hasPermission(anyString(), anyString())).thenReturn(true);
+        doNothing().when(permissionValidationService).validateAccountsReadPermission(true);
+
+        // Pagination
+        when(paginationService.generatePaginationKey(anyString(), anyInt(), anyInt()))
+                .thenReturn("generated-pagination-key-123");
+
+        // External service
+        when(externalAccountService.fetchAccounts(anyString(), any(), anyInt(), anyInt()))
+                .thenReturn(accounts);
+
+        // Pagination links
+        when(paginationLinkBuilder.buildLinks(any(), anyInt(), anyString()))
+                .thenReturn(links);
+
+        // Event publisher
+        doNothing().when(eventPublisher).publish(any());
     }
 }

@@ -18,11 +18,14 @@ import java.util.List;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AccountsBusinessService {
 
     private final AccountValidationService accountValidationService;
-    private final IPaginationService paginationService;
+    private IPaginationService paginationService;
+
+    public AccountsBusinessService(AccountValidationService accountValidationService) {
+        this.accountValidationService = accountValidationService;
+    }
 
     /**
      * Validates input parameters for get accounts operation

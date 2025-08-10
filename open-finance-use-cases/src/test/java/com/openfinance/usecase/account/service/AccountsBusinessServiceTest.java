@@ -66,7 +66,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should throw exception when page is less than 1")
     void shouldThrowExceptionWhenPageIsLessThan1() {
         // Arrange
-        GetAccountsInput invalidInput = GetAccountsInput.builder()
+        GetAccountsInput invalidInput = validInput.builder()
                 .page(0)
                 .build();
 
@@ -80,7 +80,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should throw exception when page size is less than 1")
     void shouldThrowExceptionWhenPageSizeIsLessThan1() {
         // Arrange
-        GetAccountsInput invalidInput = GetAccountsInput.builder()
+        GetAccountsInput invalidInput = validInput.builder()
                 .pageSize(0)
                 .build();
 
@@ -94,7 +94,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should throw exception when page size exceeds 1000")
     void shouldThrowExceptionWhenPageSizeExceeds1000() {
         // Arrange
-        GetAccountsInput invalidInput = GetAccountsInput.builder()
+        GetAccountsInput invalidInput = validInput.builder()
                 .pageSize(1001)
                 .build();
 
@@ -108,7 +108,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should throw exception when X-FAPI-Interaction-ID is null")
     void shouldThrowExceptionWhenXFapiInteractionIdIsNull() {
         // Arrange
-        GetAccountsInput invalidInput = GetAccountsInput.builder()
+        GetAccountsInput invalidInput = validInput.builder()
                 .xFapiInteractionId(null)
                 .build();
 
@@ -122,7 +122,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should throw exception when X-FAPI-Interaction-ID is not valid UUID")
     void shouldThrowExceptionWhenXFapiInteractionIdIsNotValidUuid() {
         // Arrange
-        GetAccountsInput invalidInput = GetAccountsInput.builder()
+        GetAccountsInput invalidInput = validInput.builder()
                 .xFapiInteractionId("invalid-uuid-format")
                 .build();
 
@@ -186,7 +186,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should calculate effective page size correctly")
     void shouldCalculateEffectivePageSizeCorrectly() {
         // Test case 1: Normal page size
-        GetAccountsInput input1 = GetAccountsInput.builder().pageSize(50).build();
+        GetAccountsInput input1 = validInput.builder().pageSize(50).build();
         assertThat(businessService.calculateEffectivePageSize(input1)).isEqualTo(50);
 
         // Test case 2: Page size less than 25 on page 1 (allowed)
@@ -220,7 +220,7 @@ class AccountsBusinessServiceTest {
     @DisplayName("Should process accounts without filter correctly")
     void shouldProcessAccountsWithoutFilterCorrectly() {
         // Arrange
-        GetAccountsInput inputWithoutFilter = GetAccountsInput.builder()
+        GetAccountsInput inputWithoutFilter = validInput.builder()
                 .accountType(Optional.empty())
                 .build();
 

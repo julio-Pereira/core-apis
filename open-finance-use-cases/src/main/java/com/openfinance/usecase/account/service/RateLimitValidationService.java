@@ -2,6 +2,7 @@ package com.openfinance.usecase.account.service;
 
 import com.openfinance.core.exceptions.BusinessRuleViolationException;
 import com.openfinance.core.port.IRateLimitService;
+import com.openfinance.usecase.utils.FrequencyCategory;
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,25 +18,6 @@ import org.springframework.stereotype.Service;
 public class RateLimitValidationService {
 
     private final IRateLimitService rateLimitService;
-
-    // Open Finance rate limit categories
-    public enum FrequencyCategory {
-        HIGH("High Frequency", 2500),           // Alta frequência
-        MEDIUM_HIGH("Medium-High Frequency", 2000),  // Média-alta frequência
-        MEDIUM("Medium Frequency", 1500),       // Média frequência
-        LOW("Low Frequency", 1000);            // Baixa frequência
-
-        private final String description;
-        private final int baseTPM;
-
-        FrequencyCategory(String description, int baseTPM) {
-            this.description = description;
-            this.baseTPM = baseTPM;
-        }
-
-        public String getDescription() { return description; }
-        public int getBaseTPM() { return baseTPM; }
-    }
 
     /**
      * Validates rate limits for the accounts endpoint (High Frequency category)
