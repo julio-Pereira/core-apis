@@ -27,7 +27,7 @@ public class AccountsLoggingAspect {
      * Around advice for GetAccountsFacade.getAccounts method
      * Automatically logs start, success, failure, and performance metrics
      */
-    @Around("execution(* com.openfinance.usecase.account.facade.GetAccountsFacade.getAccounts(..))")
+    @Around("execution(* com.openfinance.usecase.account.retrieve.list.GetAccountsFacade.getAccounts(..))")
     public Object logAccountAccess(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
         GetAccountsInput input = (GetAccountsInput) joinPoint.getArgs()[0];
@@ -71,7 +71,7 @@ public class AccountsLoggingAspect {
     /**
      * Around advice for performance monitoring
      */
-    @Around("@annotation(com.openfinance.usecase.account.annotation.MonitorPerformance)")
+    @Around("@annotation(com.openfinance.usecase.utils.MonitorPerformance)")
     public Object monitorPerformance(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
         String operationName = joinPoint.getSignature().getName().toUpperCase();
@@ -103,7 +103,7 @@ public class AccountsLoggingAspect {
     /**
      * Around advice for SLA compliance monitoring
      */
-    @Around("@annotation(com.openfinance.usecase.account.annotation.MonitorSLA)")
+    @Around("@annotation(com.openfinance.usecase.utils.MonitorSLA)")
     public Object monitorSLA(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
 

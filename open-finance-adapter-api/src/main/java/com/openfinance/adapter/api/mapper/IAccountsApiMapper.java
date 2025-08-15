@@ -5,13 +5,11 @@ import com.openfinance.adapter.api.dto.response.CompanyDto;
 import com.openfinance.adapter.api.dto.response.LinksDto;
 import com.openfinance.adapter.api.dto.response.MetaDto;
 import com.openfinance.adapter.api.dto.response.ResponseAccountListDto;
-import com.openfinance.usecase.accounts.dto.GetAccountsOutput;
-import com.openfinance.usecase.accounts.dto.PaginationInfo;
-import com.openfinance.usecase.accounts.dto.AccountOutputDto;
-import com.openfinance.usecase.accounts.dto.CompanyOutputDto;
+import com.openfinance.usecase.account.retrieve.list.GetAccountsOutput;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
+
 
 import java.time.LocalDateTime;
 import java.util.List;
