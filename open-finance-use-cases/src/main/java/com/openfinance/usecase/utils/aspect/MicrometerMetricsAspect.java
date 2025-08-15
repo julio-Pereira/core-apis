@@ -1,7 +1,7 @@
 package com.openfinance.usecase.utils.aspect;
 
+import com.openfinance.usecase.account.retrieve.list.GetAccountsInput;
 import com.openfinance.usecase.utils.CollectMetrics;
-import com.openfinance.usecase.account.input.GetAccountsInput;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;

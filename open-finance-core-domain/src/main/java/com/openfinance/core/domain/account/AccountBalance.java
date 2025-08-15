@@ -1,7 +1,6 @@
 package com.openfinance.core.domain.account;
 
-import com.openfinance.core.valueobjects.AccountId;
-import com.openfinance.core.valueobjects.Amount;
+import com.openfinance.core.domain.valueobjects.Amount;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;

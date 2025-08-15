@@ -1,6 +1,6 @@
 package com.openfinance.core.port;
 
-import com.openfinance.core.valueobjects.AccountId;
+import com.openfinance.core.domain.account.AccountId;
 
 /**
 * Service port for consent validation operations

@@ -1,7 +1,7 @@
 package com.openfinance.core.exceptions;
 
-import com.openfinance.core.valueobjects.AccountId;
-import com.openfinance.core.valueobjects.Amount;
+import com.openfinance.core.domain.account.AccountId;
+import com.openfinance.core.domain.valueobjects.Amount;
 
 /**
  * Exception thrown when an account has insufficient funds for an operation

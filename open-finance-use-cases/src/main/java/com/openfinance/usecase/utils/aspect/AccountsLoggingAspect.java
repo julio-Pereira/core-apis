@@ -1,8 +1,9 @@
 package com.openfinance.usecase.utils.aspect;
 
-import com.openfinance.usecase.account.input.GetAccountsInput;
-import com.openfinance.usecase.account.output.GetAccountsOutput;
-import com.openfinance.usecase.account.service.AccountAccessLoggingService;
+import com.openfinance.core.exceptions.BusinessRuleViolationException;
+import com.openfinance.usecase.account.retrieve.list.GetAccountsInput;
+import com.openfinance.usecase.account.aspect.AccountAccessLoggingService;
+import com.openfinance.usecase.account.retrieve.list.GetAccountsOutput;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -42,7 +43,7 @@ public class AccountsLoggingAspect {
             GetAccountsOutput output = (GetAccountsOutput) result;
 
             // Log successful completion
-            loggingService.logAccountAccessSuccess(input, output.getAccountCount(), executionTime);
+            loggingService.logAccountAccessSuccess(input, output.getAccountsCount(), executionTime);
 
             return result;
 
@@ -55,6 +56,16 @@ public class AccountsLoggingAspect {
 
             throw e;
         }
+    }
+
+    /**
+     * Extracts error code from exception
+     */
+    private String extractErrorCode(Exception e) {
+        if (e instanceof BusinessRuleViolationException) {
+            return e.getMessage();
+        }
+        return "INTERNAL_ERROR";
     }
 
     /**
@@ -115,7 +126,7 @@ public class AccountsLoggingAspect {
                         withinSLA,
                         executionTime,
                         input.organizationId(),
-                        output.getAccountCount()
+                        output.getAccountsCount()
                 );
 
                 if (!withinSLA) {
@@ -131,15 +142,5 @@ public class AccountsLoggingAspect {
             log.error("SLA monitoring failed - ExecutionTime: {}ms, Error: {}", executionTime, e.getMessage());
             throw e;
         }
-    }
-
-    /**
-     * Extracts error code from exception
-     */
-    private String extractErrorCode(Exception e) {
-        if (e instanceof com.openfinance.core.exceptions.BusinessRuleViolationException) {
-            return ((com.openfinance.core.exceptions.BusinessRuleViolationException) e).getErrorCode();
-        }
-        return "INTERNAL_ERROR";
     }
 }

@@ -1,20 +1,26 @@
 package com.openfinance.core.exceptions;
 
-public abstract class DomainException extends RuntimeException {
+import java.util.List;
+import com.openfinance.core.domain.validation.Error;
 
-    private final String errorCode;
-    
-    protected DomainException(String message, String errorCode, Throwable cause) {
-        super(message, cause);
-        this.errorCode = errorCode;
+public class DomainException extends NoStacktraceException {
+
+    protected final List<Error> errors;
+
+    protected DomainException(final String aMessage, final List<Error> anErrors) {
+        super(aMessage);
+        this.errors = anErrors;
     }
 
-    protected DomainException(String message, String errorCode) {
-        super(message);
-        this.errorCode = errorCode;
+    public static DomainException with(final Error errors) {
+        return new DomainException(errors.message(), List.of(errors));
     }
 
-    public String getErrorCode() {
-        return errorCode;
+    public static DomainException with(final List<Error> errors) {
+        return new DomainException("", errors);
+    }
+
+    public List<Error> getErrors() {
+        return errors;
     }
 }

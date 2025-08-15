@@ -1,8 +1,8 @@
 package com.openfinance.core.events.transaction;
 
-import com.openfinance.core.enums.CreditDebitIndicator;
+import com.openfinance.core.domain.transaction.CreditDebitIndicator;
 import com.openfinance.core.events.DomainEvent;
-import com.openfinance.core.valueobjects.AccountId;
+import com.openfinance.core.domain.account.AccountId;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

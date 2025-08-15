@@ -1,10 +1,10 @@
 package com.openfinance.core.domain.transaction;
 
-import com.openfinance.core.enums.CompletedAuthorisedPaymentIndicator;
-import com.openfinance.core.enums.CreditDebitIndicator;
-import com.openfinance.core.enums.PartiePersonType;
-import com.openfinance.core.enums.TransactionType;
-import com.openfinance.core.valueobjects.*;
+import com.openfinance.core.domain.account.AccountId;
+import com.openfinance.core.domain.account.PartiePersonType;
+import com.openfinance.core.domain.valueobjects.Amount;
+import com.openfinance.core.domain.valueobjects.BranchCode;
+import com.openfinance.core.domain.valueobjects.CompeCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;

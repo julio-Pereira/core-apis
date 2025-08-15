@@ -1,6 +1,6 @@
 package com.openfinance.core.exceptions;
 
-import com.openfinance.core.enums.AccountType;
+import com.openfinance.core.domain.account.AccountType;
 
 /**
  * Exception thrown when an invalid account type is used for a specific operation

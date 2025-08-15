@@ -1,10 +1,10 @@
 package com.openfinance.core.domain.account;
 
-import com.openfinance.core.enums.AccountSubType;
-import com.openfinance.core.enums.AccountType;
-import com.openfinance.core.valueobjects.AccountId;
-import com.openfinance.core.valueobjects.BranchCode;
-import com.openfinance.core.valueobjects.CompeCode;
+import com.openfinance.core.domain.AggregateRoot;
+import com.openfinance.core.domain.validation.IValidationHandler;
+import com.openfinance.core.domain.validation.handler.Notification;
+import com.openfinance.core.domain.valueobjects.BranchCode;
+import com.openfinance.core.domain.valueobjects.CompeCode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -17,7 +17,7 @@ import java.util.Objects;
  * Core domain entity representing a financial account in the Open Finance ecosystem.
  * This entity encapsulates all account-related business logic and invariants.
  */
-public class Account {
+public class Account extends AggregateRoot<AccountId> {
 
     @NotBlank(message = "Brand name cannot be blank")
     @Size(max = 80, message = "Brand name must not exceed 80 characters")
@@ -48,8 +48,6 @@ public class Account {
     @Pattern(regexp = "[\\w\\W\\s]*", message = "Invalid check digit format")
     private final String checkDigit;
 
-    @NotNull(message = "Account ID cannot be null")
-    private final AccountId accountId;
 
     @NotNull(message = "Currency cannot be null")
     private final Currency currency;
@@ -58,6 +56,7 @@ public class Account {
      * Private constructor to ensure immutability and controlled creation
      */
     private Account(Builder builder) {
+        super(builder.accountId);
         this.brandName = builder.brandName;
         this.companyCnpj = builder.companyCnpj;
         this.type = builder.type;
@@ -66,35 +65,24 @@ public class Account {
         this.branchCode = builder.branchCode;
         this.number = builder.number;
         this.checkDigit = builder.checkDigit;
-        this.accountId = builder.accountId;
         this.currency = builder.currency;
-
-        validateBusinessRules();
+        selfValidate();
     }
 
-    /**
-     * Validates business rules for account creation
-     */
-    private void validateBusinessRules() {
-        // Branch code is mandatory for accounts different from CONTA_PAGAMENTO_PRE_PAGA
-        if (type != AccountType.CONTA_PAGAMENTO_PRE_PAGA && branchCode == null) {
-            throw new IllegalArgumentException("Branch code is mandatory for account type: " + type);
-        }
+    @Override
+    public void validate(IValidationHandler handler) {
+        new AccountValidator(this, handler).validate();
+    }
 
-        // Pre-paid accounts should not have branch code
-        if (type == AccountType.CONTA_PAGAMENTO_PRE_PAGA && branchCode != null) {
-            throw new IllegalArgumentException("Pre-paid accounts should not have branch code");
+    private void selfValidate() {
+        final var notification = Notification.create();
+        validate(notification);
+
+        if (notification.hasErrors()) {
+            throw new IllegalStateException("Account validation failed: " + notification);
         }
     }
 
-    /**
-     * Creates a new builder instance
-     */
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    // Getters
     public String getBrandName() {
         return brandName;
     }
@@ -127,10 +115,6 @@ public class Account {
         return checkDigit;
     }
 
-    public AccountId getAccountId() {
-        return accountId;
-    }
-
     public Currency getCurrency() {
         return currency;
     }
@@ -156,31 +140,6 @@ public class Account {
         return AccountType.CONTA_DEPOSITO_A_VISTA.equals(this.type);
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
-        Account account = (Account) obj;
-        return Objects.equals(accountId, account.accountId);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(accountId);
-    }
-
-    @Override
-    public String toString() {
-        return "Account{" +
-                "accountId=" + accountId +
-                ", type=" + type +
-                ", brandName='" + brandName + '\'' +
-                '}';
-    }
-
-    /**
-     * Builder pattern for Account creation
-     */
     public static class Builder {
         private String brandName;
         private String companyCnpj;
@@ -246,5 +205,9 @@ public class Account {
         public Account build() {
             return new Account(this);
         }
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 }

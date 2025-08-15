@@ -1,7 +1,7 @@
 package com.openfinance.core.port;
 
 import com.openfinance.core.domain.account.AccountBalance;
-import com.openfinance.core.valueobjects.AccountId;
+import com.openfinance.core.domain.account.AccountId;
 
 import java.util.Optional;
 

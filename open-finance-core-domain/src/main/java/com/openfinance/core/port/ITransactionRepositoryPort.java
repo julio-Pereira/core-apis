@@ -1,9 +1,9 @@
 package com.openfinance.core.port;
 
-import com.openfinance.core.enums.CreditDebitIndicator;
+import com.openfinance.core.domain.transaction.CreditDebitIndicator;
 import com.openfinance.core.domain.transaction.Transaction;
-import com.openfinance.core.valueobjects.AccountId;
-import com.openfinance.core.valueobjects.TransactionId;
+import com.openfinance.core.domain.account.AccountId;
+import com.openfinance.core.domain.transaction.TransactionId;
 
 import java.time.LocalDate;
 import java.util.List;

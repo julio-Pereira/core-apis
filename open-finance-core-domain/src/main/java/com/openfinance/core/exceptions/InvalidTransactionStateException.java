@@ -1,7 +1,7 @@
 package com.openfinance.core.exceptions;
 
-import com.openfinance.core.enums.CompletedAuthorisedPaymentIndicator;
-import com.openfinance.core.valueobjects.TransactionId;
+import com.openfinance.core.domain.transaction.CompletedAuthorisedPaymentIndicator;
+import com.openfinance.core.domain.transaction.TransactionId;
 
 /**
  * Exception thrown when a transaction is in an invalid state for a specific operation

@@ -1,7 +1,7 @@
 package com.openfinance.core.events.overdraftlimits;
 
 import com.openfinance.core.events.DomainEvent;
-import com.openfinance.core.valueobjects.AccountId;
+import com.openfinance.core.domain.account.AccountId;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

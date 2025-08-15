@@ -1,6 +1,6 @@
 package com.openfinance.usecase.account.config;
 
-import com.openfinance.usecase.pagination.PaginationLinkBuilder;
+import com.openfinance.usecase.pagination.Pagination;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -30,10 +30,10 @@ public class AccountsUseCaseConfiguration {
      * Creates the pagination link builder service with configured base URL
      */
     @Bean
-    public PaginationLinkBuilder paginationLinkBuilderService() {
+    public Pagination paginationLinkBuilderService() {
         log.info("Configuring PaginationLinkBuilderService with baseUrl: {}", baseUrl);
 
-        PaginationLinkBuilder service = new PaginationLinkBuilder(baseUrl);
+        Pagination service = new Pagination(baseUrl);
 
         if (!service.isValidBaseUrl()) {
             log.warn("Invalid base URL configured: {}", baseUrl);
