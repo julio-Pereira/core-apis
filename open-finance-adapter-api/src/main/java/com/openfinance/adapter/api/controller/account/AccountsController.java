@@ -143,16 +143,16 @@ public class AccountsController implements IAccountsControllerPort {
      * @param accountType String representando o tipo de conta
      * @return Optional contendo o AccountType se válido
      */
-    private Optional<AccountType> parseAccountType(String accountType) {
+    private AccountType parseAccountType(String accountType) {
         if (accountType == null || accountType.trim().isEmpty()) {
-            return Optional.empty();
+            return null;
         }
 
         try {
-            return Optional.of(AccountType.valueOf(accountType.toUpperCase()));
+            return AccountType.valueOf(accountType.toUpperCase());
         } catch (IllegalArgumentException e) {
             log.warn("Invalid account type received: {}", accountType);
-            return Optional.empty();
+            throw new IllegalArgumentException("Invalid account type: " + accountType);
         }
     }
 
