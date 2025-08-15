@@ -19,11 +19,10 @@ public class UseCaseExceptionHandler {
      * Handles domain exceptions and converts them to use case exceptions
      */
     public UseCaseException handleDomainException(DomainException domainException, String operation) {
-        log.error("Domain exception occurred during operation: {} - Error: {}, Code: {}",
-                operation, domainException.getMessage(), domainException.getErrorCode(), domainException);
+        log.error("Domain exception occurred during operation: {} - Error: {}, ",
+                operation, domainException.getMessage());
 
         return UseCaseException.builder()
-                .errorCode(domainException.getErrorCode())
                 .message(domainException.getMessage())
                 .operation(operation)
                 .timestamp(LocalDateTime.now())
@@ -39,7 +38,6 @@ public class UseCaseExceptionHandler {
                 operation, exception.getMessage(), exception);
 
         return UseCaseException.builder()
-                .errorCode(exception.getErrorCode())
                 .message(exception.getMessage())
                 .operation(operation)
                 .timestamp(LocalDateTime.now())

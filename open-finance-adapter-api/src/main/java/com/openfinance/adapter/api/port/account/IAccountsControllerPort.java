@@ -1,4 +1,4 @@
-package com.openfinance.adapter.api.port;
+package com.openfinance.adapter.api.port.account;
 
 import com.openfinance.adapter.api.dto.response.ResponseAccountListDto;
 import com.openfinance.adapter.api.dto.response.ResponseErrorDto;
@@ -28,9 +28,6 @@ import reactor.core.publisher.Mono;
 @Tag(name = "Accounts", description = "API de Contas do Open Finance")
 public interface IAccountsControllerPort {
 
-    /**
-     * Obtém a lista de contas do cliente
-     */
     @Operation(
             summary = "Obtém a lista de contas depósito à vista, poupança e pagamento pré-pagas",
             description = "Método para obter a lista de contas depósito à vista, poupança e pagamento pré-pagas " +
@@ -167,10 +164,10 @@ public interface IAccountsControllerPort {
 
             @Parameter(
                     name = "x-fapi-auth-date",
-                    description = "Data em que o usuário logou pela última vez com o receptor. Representada de acordo com a [RFC7231](https://tools.ietf.org/html/rfc7231). Exemplo: Sun, 10 Sep 2017 19:43:31 UTC",
+                    description = "Data em que o usuário logou pela última vez com o receptor. Representada de acordo com a [RFC7231](https://tools.ietf.org/html/rfc7231).",
                     required = false,
                     in = ParameterIn.HEADER,
-                    schema = @Schema(type = "string", maxLength = 29, pattern = "^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \\d{2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{4} \\d{2}:\\d{2}:\\d{2} (GMT|UTC)$")
+                    schema = @Schema(type = "string", maxLength = 255, pattern = "[\\w\\W\\s]*")
             )
             @RequestHeader(value = "x-fapi-auth-date", required = false) String xFapiAuthDate,
 
@@ -179,22 +176,22 @@ public interface IAccountsControllerPort {
                     description = "O endereço IP do usuário se estiver atualmente logado com o receptor.",
                     required = false,
                     in = ParameterIn.HEADER,
-                    schema = @Schema(type = "string", maxLength = 39, pattern = "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$|^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$")
+                    schema = @Schema(type = "string", maxLength = 255, pattern = "[\\w\\W\\s]*")
             )
             @RequestHeader(value = "x-fapi-customer-ip-address", required = false) String xFapiCustomerIpAddress,
 
             @Parameter(
                     name = "x-fapi-interaction-id",
-                    description = "Um UUID [RFC4122](https://tools.ietf.org/html/rfc4122) usado como um ID de correlação entre request e response. Campo de geração e envio obrigatório pela receptora (client) e o seu valor deve ser \"espelhado\" pela transmissora (server) no cabeçalho de resposta.",
+                    description = "Um UUID [RFC4122](https://tools.ietf.org/html/rfc4122) usado como um ID de correlação entre request e response.",
                     required = true,
                     in = ParameterIn.HEADER,
-                    schema = @Schema(type = "string", format = "uuid", minLength = 1, maxLength = 36, pattern = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+                    schema = @Schema(type = "string", format = "uuid")
             )
             @RequestHeader("x-fapi-interaction-id") String xFapiInteractionId,
 
             @Parameter(
                     name = "x-customer-user-agent",
-                    description = "Indica o user-agent que o usuário utiliza.",
+                    description = "Indica o user-agent que o usuário está utilizando.",
                     required = false,
                     in = ParameterIn.HEADER,
                     schema = @Schema(type = "string", maxLength = 100, pattern = "[\\w\\W\\s]*")
@@ -206,34 +203,38 @@ public interface IAccountsControllerPort {
                     description = "Número da página que está sendo requisitada (o valor da primeira página é 1).",
                     required = false,
                     in = ParameterIn.QUERY,
-                    schema = @Schema(type = "integer", format = "int32", defaultValue = "1", minimum = "1", maximum = "2147483647")
+                    schema = @Schema(type = "integer", minimum = "1", maximum = "2147483647", format = "int32", defaultValue = "1")
             )
-            @RequestParam(value = "page", required = false, defaultValue = "1") Integer page,
+            @RequestParam(value = "page", required = false) Integer page,
 
             @Parameter(
                     name = "page-size",
                     description = "Quantidade total de registros por páginas.",
                     required = false,
                     in = ParameterIn.QUERY,
-                    schema = @Schema(type = "integer", format = "int32", defaultValue = "25", minimum = "1", maximum = "1000")
+                    schema = @Schema(type = "integer", minimum = "1", maximum = "1000", format = "int32", defaultValue = "25")
             )
-            @RequestParam(value = "page-size", required = false, defaultValue = "25") Integer pageSize,
+            @RequestParam(value = "page-size", required = false) Integer pageSize,
 
             @Parameter(
                     name = "accountType",
-                    description = "Tipos de contas. Modalidades tradicionais previstas pela Resolução 4.753, não contemplando contas vinculadas, conta de domiciliados no exterior, contas em moedas estrangeiras e conta correspondente moeda eletrônica.",
+                    description = "Tipo de conta consultada.",
                     required = false,
                     in = ParameterIn.QUERY,
-                    schema = @Schema(type = "string")
+                    schema = @Schema(type = "string", allowableValues = {
+                            "CONTA_DEPOSITO_A_VISTA",
+                            "CONTA_POUPANCA",
+                            "CONTA_PAGAMENTO_PRE_PAGA"
+                    })
             )
             @RequestParam(value = "accountType", required = false) String accountType,
 
             @Parameter(
                     name = "pagination-key",
-                    description = "Identificador de rechamada, utilizado para evitar a contagem de chamadas ao endpoint durante a paginação.",
+                    description = "Chave de paginação para controle de limites operacionais e identificação de consultas.",
                     required = false,
                     in = ParameterIn.QUERY,
-                    schema = @Schema(type = "string", maxLength = 2048, pattern = "[\\w\\W\\s]*")
+                    schema = @Schema(type = "string", maxLength = 255)
             )
             @RequestParam(value = "pagination-key", required = false) String paginationKey
     );

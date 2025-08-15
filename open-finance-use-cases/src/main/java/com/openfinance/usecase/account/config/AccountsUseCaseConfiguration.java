@@ -2,6 +2,7 @@ package com.openfinance.usecase.account.config;
 
 import com.openfinance.usecase.IEventPublisher;
 import com.openfinance.usecase.IUseCase;
+import com.openfinance.usecase.account.mapper.IAccountUseCaseMapper;
 import com.openfinance.usecase.account.port.IAccountPort;
 import com.openfinance.usecase.account.port.IConsentPort;
 import com.openfinance.usecase.account.port.IRateLimitPort;
@@ -43,6 +44,7 @@ public class AccountsUseCaseConfiguration {
      * @param accountPort Port para acesso a dados de contas
      * @param paginationService Serviço de paginação
      * @param eventPublisher Publisher de eventos de domínio
+     * @param accountMapper Mapper para conversão entre entidades e DTOs
      * @return Instância configurada do caso de uso
      */
     @Bean
@@ -52,7 +54,8 @@ public class AccountsUseCaseConfiguration {
             AccountValidationService accountValidationService,
             IAccountPort accountPort,
             PaginationService paginationService,
-            IEventPublisher eventPublisher) {
+            IEventPublisher eventPublisher,
+            IAccountUseCaseMapper accountMapper) {
 
         return new GetAccountsUseCase(
                 consentValidationService,
@@ -60,49 +63,27 @@ public class AccountsUseCaseConfiguration {
                 accountValidationService,
                 accountPort,
                 paginationService,
-                eventPublisher
+                eventPublisher,
+                accountMapper
         );
     }
 
     /**
-     * Configura a facade para o caso de uso de obtenção de contas
+     * Configura o facade para o caso de uso de obtenção de contas
      *
-     * @param useCase Caso de uso de obtenção de contas
-     * @return Instância configurada da facade
+     * @param getAccountsUseCase Caso de uso configurado
+     * @return Instância do facade
      */
     @Bean
     public GetAccountsFacade getAccountsFacade(
-            IUseCase<GetAccountsInput, GetAccountsOutput> useCase) {
-
-        return new GetAccountsFacade(useCase);
-    }
-
-    /**
-     * Configura o serviço de validação de consentimentos
-     *
-     * @param consentPort Port para acesso a dados de consentimento
-     * @return Instância configurada do serviço
-     */
-    @Bean
-    public ConsentValidationService consentValidationService(IConsentPort consentPort, PermissionFilterService permissionFilterService) {
-        return new ConsentValidationService(consentPort, permissionFilterService);
-    }
-
-    /**
-     * Configura o serviço de validação de rate limiting
-     *
-     * @param rateLimitPort Port para controle de rate limiting
-     * @return Instância configurada do serviço
-     */
-    @Bean
-    public RateLimitValidationService rateLimitValidationService(IRateLimitPort rateLimitPort) {
-        return new RateLimitValidationService(rateLimitPort);
+            IUseCase<GetAccountsInput, GetAccountsOutput> getAccountsUseCase) {
+        return new GetAccountsFacade(getAccountsUseCase);
     }
 
     /**
      * Configura o serviço de validação de contas
      *
-     * @return Instância configurada do serviço
+     * @return Instância do serviço de validação
      */
     @Bean
     public AccountValidationService accountValidationService() {
@@ -110,126 +91,44 @@ public class AccountsUseCaseConfiguration {
     }
 
     /**
+     * Configura o serviço de validação de consentimentos
+     *
+     * @param consentPort Port para acesso a dados de consentimento
+     * @return Instância do serviço de validação
+     */
+    @Bean
+    public ConsentValidationService consentValidationService(IConsentPort consentPort) {
+        return new ConsentValidationService(consentPort);
+    }
+
+    /**
+     * Configura o serviço de validação de rate limiting
+     *
+     * @param rateLimitPort Port para controle de rate limiting
+     * @return Instância do serviço de validação
+     */
+    @Bean
+    public RateLimitValidationService rateLimitValidationService(IRateLimitPort rateLimitPort) {
+        return new RateLimitValidationService(rateLimitPort);
+    }
+
+    /**
      * Configura o serviço de paginação
      *
-     * @return Instância configurada do serviço
+     * @return Instância do serviço de paginação
      */
     @Bean
     public PaginationService paginationService() {
         return new PaginationService();
     }
-}
-
-/**
- * Propriedades de configuração para os casos de uso de Accounts.
- *
- * Centraliza todas as configurações específicas dos casos de uso,
- * permitindo externalização via application.yml/properties.
- */
-@org.springframework.boot.context.properties.ConfigurationProperties(prefix = "open-finance.accounts.usecase")
-record AccountsUseCaseProperties(
-
-        /**
-         * Configurações de rate limiting
-         */
-        RateLimit rateLimit,
-
-        /**
-         * Configurações de paginação
-         */
-        Pagination pagination,
-
-        /**
-         * Configurações de SLA
-         */
-        Sla sla,
-
-        /**
-         * Configurações de auditoria
-         */
-        Audit audit
-) {
 
     /**
-     * Configurações específicas de rate limiting
+     * Configura o serviço de filtros de permissão
+     *
+     * @return Instância do serviço de filtros
      */
-    record RateLimit(
-            int defaultTpm,           // TPM padrão
-            int defaultTps,           // TPS padrão
-            int accountsTpm,          // TPM específico para /accounts
-            int accountsTps,          // TPS específico para /accounts
-            boolean failOpen,         // Permitir em caso de erro
-            int cacheTimeoutSeconds   // Timeout do cache de rate limiting
-    ) {}
-
-    /**
-     * Configurações específicas de paginação
-     */
-    record Pagination(
-            int defaultPageSize,      // Tamanho padrão de página
-            int maxPageSize,          // Tamanho máximo de página
-            int keyTtlMinutes,        // TTL das chaves de paginação
-            String baseUrl            // URL base para links HATEOAS
-    ) {}
-
-    /**
-     * Configurações específicas de SLA
-     */
-    record Sla(
-            long highFrequencyThresholdMs,    // Limite para alta frequência
-            long mediumFrequencyThresholdMs,  // Limite para média frequência
-            long lowFrequencyThresholdMs,     // Limite para baixa frequência
-            boolean enableMonitoring,         // Habilitar monitoramento
-            boolean enableAlerts              // Habilitar alertas
-    ) {}
-
-    /**
-     * Configurações específicas de auditoria
-     */
-    record Audit(
-            boolean enableDetailedLogging,    // Logging detalhado
-            boolean logParameters,            // Log de parâmetros
-            boolean logReturnValues,          // Log de retornos
-            boolean enablePerformanceLogging, // Log de performance
-            long warningThresholdMs           // Limite para warnings
-    ) {}
-}
-
-/**
- * Configuração padrão para desenvolvimento/teste
- */
-class DefaultAccountsUseCaseConfiguration {
-
-    public static AccountsUseCaseProperties defaultProperties() {
-        return new AccountsUseCaseProperties(
-                new AccountsUseCaseProperties.RateLimit(
-                        300,  // defaultTpm
-                        10,   // defaultTps
-                        300,  // accountsTpm
-                        10,   // accountsTps
-                        true, // failOpen
-                        60    // cacheTimeoutSeconds
-                ),
-                new AccountsUseCaseProperties.Pagination(
-                        25,   // defaultPageSize
-                        1000, // maxPageSize
-                        60,   // keyTtlMinutes
-                        "https://api.banco.com.br/open-banking" // baseUrl
-                ),
-                new AccountsUseCaseProperties.Sla(
-                        1500L, // highFrequencyThresholdMs
-                        2000L, // mediumFrequencyThresholdMs
-                        4000L, // lowFrequencyThresholdMs
-                        true,  // enableMonitoring
-                        true   // enableAlerts
-                ),
-                new AccountsUseCaseProperties.Audit(
-                        true,  // enableDetailedLogging
-                        false, // logParameters (evitar dados sensíveis)
-                        true,  // logReturnValues
-                        true,  // enablePerformanceLogging
-                        1000L  // warningThresholdMs
-                )
-        );
+    @Bean
+    public PermissionFilterService permissionFilterService() {
+        return new PermissionFilterService();
     }
 }

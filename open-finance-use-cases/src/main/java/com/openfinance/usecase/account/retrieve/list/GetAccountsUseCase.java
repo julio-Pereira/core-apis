@@ -5,6 +5,7 @@ import com.openfinance.core.events.account.AccountAccessedEvent;
 import com.openfinance.core.exceptions.BusinessRuleViolationException;
 import com.openfinance.core.exceptions.ValidationException;
 import com.openfinance.usecase.IEventPublisher;
+import com.openfinance.usecase.account.mapper.IAccountUseCaseMapper;
 import com.openfinance.usecase.account.port.IAccountPort;
 import com.openfinance.usecase.account.service.AccountValidationService;
 import com.openfinance.usecase.account.service.ConsentValidationService;
@@ -45,6 +46,7 @@ public class GetAccountsUseCase implements IGetAccountsUseCase {
     private final IAccountPort accountPort;
     private final PaginationService paginationService;
     private final IEventPublisher eventPublisher;
+    private final IAccountUseCaseMapper accountMapper;
 
     /**
      * {@inheritDoc}
@@ -76,24 +78,27 @@ public class GetAccountsUseCase implements IGetAccountsUseCase {
         // 3. Validação de parâmetros específicos de contas
         validateAccountParameters(input);
 
-        // 4. Busca das contas no sistema externo
+        // 4. Busca das contas no sistema externo (retorna entidades de domínio)
         List<Account> accounts = retrieveAccounts(input);
 
-        // 5. Aplicação de filtros e processamento
+        // 5. Aplicação de filtros e processamento (ainda com entidades de domínio)
         List<Account> filteredAccounts = applyFilters(accounts, input);
 
-        // 6. Geração de informações de paginação
-        PaginationInfo paginationInfo = generatePaginationInfo(filteredAccounts, input);
+        // 6. Conversão das entidades de domínio para DTOs do use case
+        List<AccountOutputDto> accountOutputDtos = accountMapper.toAccountOutputDtoList(filteredAccounts);
 
-        // 7. Publicação de evento para auditoria
+        // 7. Geração de informações de paginação
+        PaginationInfo paginationInfo = generatePaginationInfo(accountOutputDtos, input);
+
+        // 8. Publicação de evento para auditoria (usa as entidades para o evento)
         publishAccountAccessEvent(input, filteredAccounts);
 
         LocalDateTime requestDateTime = LocalDateTime.now();
 
         log.debug("Account retrieval completed for consentId: {}, returning {} accounts",
-                input.consentId(), filteredAccounts.size());
+                input.consentId(), accountOutputDtos.size());
 
-        return new GetAccountsOutput(filteredAccounts, paginationInfo, requestDateTime);
+        return new GetAccountsOutput(accountOutputDtos, paginationInfo, requestDateTime);
     }
 
     /**
@@ -146,7 +151,7 @@ public class GetAccountsUseCase implements IGetAccountsUseCase {
         log.debug("Validating rate limits for organizationId: {}", input.organizationId());
 
         if (!rateLimitValidationService.isWithinLimits(input.organizationId(), "/accounts")) {
-            throw  BusinessRuleViolationException.with("RATE_LIMIT_EXCEEDED");
+            throw BusinessRuleViolationException.with("RATE_LIMIT_EXCEEDED");
         }
     }
 
@@ -182,34 +187,28 @@ public class GetAccountsUseCase implements IGetAccountsUseCase {
                     input.type().orElse(null)
             );
         } catch (Exception e) {
-            log.error("Error retrieving accounts from external system: {}", e.getMessage(), e);
-            throw BusinessRuleViolationException.with("EXTERNAL_SERVICE_ERROR", e);
+            log.error("Error retrieving accounts for consentId: {}", input.consentId(), e);
+            throw BusinessRuleViolationException.with("ACCOUNT_RETRIEVAL_ERROR");
         }
     }
 
     /**
-     * Aplica filtros e processamento nas contas recuperadas
+     * Aplica filtros adicionais e processamento às contas
      */
     private List<Account> applyFilters(List<Account> accounts, GetAccountsInput input) {
         log.debug("Applying filters to {} accounts", accounts.size());
 
-        // Aplicar paginação
-        int startIndex = (input.page() - 1) * input.pageSize();
-        int endIndex = Math.min(startIndex + input.pageSize(), accounts.size());
+        // Aplicar filtros específicos se necessário
+        // Por exemplo, filtros baseados em permissões do consentimento
 
-        if (startIndex >= accounts.size()) {
-            return List.of(); // Página vazia
-        }
-
-        return accounts.subList(startIndex, endIndex);
+        return accounts; // Por enquanto, retorna sem filtros adicionais
     }
 
     /**
-     * Gera informações de paginação conforme especificação Open Finance
+     * Gera informações de paginação para a resposta
      */
-    private PaginationInfo generatePaginationInfo(List<Account> accounts, GetAccountsInput input) {
-        log.debug("Generating pagination info for page {} with pageSize {}",
-                input.page(), input.pageSize());
+    private PaginationInfo generatePaginationInfo(List<AccountOutputDto> accounts, GetAccountsInput input) {
+        log.debug("Generating pagination info for {} accounts", accounts.size());
 
         return paginationService.createPaginationInfo(
                 input,
@@ -219,20 +218,17 @@ public class GetAccountsUseCase implements IGetAccountsUseCase {
     }
 
     /**
-     * Publica evento de acesso a contas para auditoria
+     * Publica evento de acesso às contas para auditoria
      */
-    private void publishAccountAccessEvent(GetAccountsInput input, List<Account> filteredAccounts) {
+    private void publishAccountAccessEvent(GetAccountsInput input, List<Account> accounts) {
         log.debug("Publishing account access event for consentId: {}", input.consentId());
 
         try {
-            // Obter informações das permissões filtradas
-            var permissionResult = consentValidationService.filterConsentPermissions(input.consentId());
-
-            // Construir contexto de acesso
+            // Construir contexto do acesso
             AccountAccessedEvent.AccountAccessContext accessContext =
                     new AccountAccessedEvent.AccountAccessContext(
                             input.xFapiInteractionId(),
-                            input.xFapiAuthDate().orElse(null),
+                            input.xFapiAuthDate().map(Object::toString).orElse(null),
                             input.xFapiCustomerIpAddress().orElse(null),
                             input.xCustomerUserAgent().orElse(null),
                             new AccountAccessedEvent.AccountAccessContext.PaginationContext(
@@ -254,55 +250,29 @@ public class GetAccountsUseCase implements IGetAccountsUseCase {
             AccountAccessedEvent.AccountAccessResult accessResult =
                     new AccountAccessedEvent.AccountAccessResult(
                             true, // success
-                            filteredAccounts.size(),
+                            accounts.size(),
                             0L, // executionTime será preenchido pelo aspect
                             null, // errorCode
                             null, // errorMessage
-                            filteredAccounts.isEmpty() ?
-                                    AccountAccessedEvent.AccountAccessResult.AccessResultType.SUCCESS_EMPTY_RESULT :
+                            accounts.isEmpty() ? AccountAccessedEvent.AccountAccessResult.AccessResultType.ERROR_NOT_FOUND :
                                     AccountAccessedEvent.AccountAccessResult.AccessResultType.SUCCESS_WITH_DATA
-                    );
-
-            // Construir informações de compliance
-            AccountAccessedEvent.ComplianceInfo complianceInfo =
-                    new AccountAccessedEvent.ComplianceInfo(
-                            true, // withinSLA - será atualizado pelo aspect
-                            1500L, // slaThresholdMs para accounts
-                            true, // rateLimitChecked
-                            rateLimitValidationService.getRemainingRequests(input.organizationId(), "/accounts"),
-                            AccountAccessedEvent.ComplianceInfo.AuditLevel.DETAILED,
-                            new AccountAccessedEvent.ComplianceInfo.SecurityContext(
-                                    true, // consentValid
-                                    true, // permissionsValid
-                                    true, // ipAddressAllowed - poderia ser validado
-                                    false, // suspiciousActivity
-                                    List.of() // securityFlags
-                            )
                     );
 
             // Criar e publicar evento
             AccountAccessedEvent event = AccountAccessedEvent.builder()
                     .consentId(input.consentId())
                     .organizationId(input.organizationId())
-                    .originalPermissions(consentValidationService.getValidPermissions(input.consentId()))
-                    .filteredPermissions(permissionResult.filteredPermissions())
-                    .removedPermissions(permissionResult.removedPermissions())
                     .operation("GET_ACCOUNTS")
                     .endpoint("/accounts")
                     .accessContext(accessContext)
                     .accessResult(accessResult)
-                    .complianceInfo(complianceInfo)
-                    .occurredOn(LocalDateTime.now())
                     .build();
 
             eventPublisher.publish(event);
 
-            log.debug("Account access event published successfully for consentId: {}", input.consentId());
-
         } catch (Exception e) {
-            log.error("Error publishing account access event for consentId {}: {}",
-                    input.consentId(), e.getMessage(), e);
-            // Não falhar a operação principal por erro de evento
+            log.warn("Failed to publish account access event for consentId: {}", input.consentId(), e);
+            // Não falha a operação por erro de auditoria
         }
     }
 }

@@ -7,7 +7,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-import javax.swing.text.html.Option;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -55,6 +54,10 @@ public record GetAccountsInput(
 
     public boolean hasPaginationKey() {
         return paginationKey.isPresent() && !paginationKey.get().trim().isEmpty();
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     public static class Builder {

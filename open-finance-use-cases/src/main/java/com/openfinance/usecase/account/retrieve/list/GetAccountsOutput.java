@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 public record GetAccountsOutput(
-        List<Account> accounts,
+        List<AccountOutputDto> accounts,
         PaginationInfo paginationInfo,
         LocalDateTime requestDateTime
 ) {
@@ -28,6 +28,16 @@ public record GetAccountsOutput(
         return accounts.size();
     }
 
+    /**
+     * Cria uma instância vazia para casos de erro ou quando não há contas
+     */
+    public static GetAccountsOutput empty(PaginationInfo paginationInfo) {
+        return new GetAccountsOutput(
+                List.of(),
+                paginationInfo,
+                LocalDateTime.now()
+        );
+    }
 
 }
 

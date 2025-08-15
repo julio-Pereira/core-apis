@@ -312,6 +312,7 @@ public class AccountAccessedEvent implements DomainEvent {
             ERROR_VALIDATION,
             ERROR_PERMISSION,
             ERROR_RATE_LIMIT,
+            ERROR_NOT_FOUND,
             ERROR_TECHNICAL
         }
     }

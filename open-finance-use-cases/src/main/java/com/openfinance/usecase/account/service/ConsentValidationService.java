@@ -24,8 +24,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ConsentValidationService {
 
+    private PermissionFilterService permissionFilterService;
     private final IConsentPort consentPort;
-    private final PermissionFilterService permissionFilterService;
 
     /**
      * Valida se um consentimento é válido e ativo

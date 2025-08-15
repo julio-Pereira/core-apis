@@ -1,6 +1,7 @@
 package com.openfinance.usecase.pagination;
 
 import com.openfinance.usecase.account.retrieve.list.GetAccountsInput;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import java.util.Base64;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class PaginationService {
 
     @Value("${open-finance.api.base-url:https://api.banco.com.br/open-banking}")
