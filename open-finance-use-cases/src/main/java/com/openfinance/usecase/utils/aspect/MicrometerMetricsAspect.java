@@ -2,15 +2,17 @@ package com.openfinance.usecase.utils.aspect;
 
 import com.openfinance.usecase.account.retrieve.list.GetAccountsInput;
 import com.openfinance.usecase.account.retrieve.list.GetAccountsOutput;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Aspect para coleta automática de métricas usando Micrometer.
@@ -26,6 +28,12 @@ import org.springframework.stereotype.Component;
 public class MicrometerMetricsAspect {
 
     private final MeterRegistry meterRegistry;
+
+    // Cache para armazenar os valores dos gauges
+    private final AtomicLong lastAccountsCount = new AtomicLong(0);
+    private final AtomicReference<String> lastOrganizationId = new AtomicReference<>("unknown");
+    private final AtomicLong lastResponseTime = new AtomicLong(0);
+    private final AtomicReference<String> lastEndpoint = new AtomicReference<>("unknown");
 
     /**
      * Coleta métricas para operações de GetAccountsFacade
@@ -78,10 +86,13 @@ public class MicrometerMetricsAspect {
                 .register(meterRegistry)
                 .increment();
 
-        // Gauge do número de contas retornadas
+        // Atualizar valores para os gauges
+        lastAccountsCount.set(output.getAccountsCount());
+        lastOrganizationId.set(organizationId);
+
         meterRegistry.gauge("open_finance.accounts.returned_count",
-                "organization_id", organizationId,
-                output.getAccountsCount());
+                Tags.of("organization_id", organizationId),
+                lastAccountsCount, AtomicLong::get);
 
         // Histograma de distribuição de contas por página
         meterRegistry.summary("open_finance.accounts.page_distribution")
@@ -184,7 +195,7 @@ public class MicrometerMetricsAspect {
     }
 
     /**
-     * Coleta métricas de SLA compliance
+     * Coleta métricas de SLA compliance - VERSÃO CORRIGIDA
      */
     public void recordSLACompliance(String endpoint, long responseTimeMs,
                                     boolean withinSLA, String organizationId) {
@@ -195,7 +206,7 @@ public class MicrometerMetricsAspect {
                 .tag("organization_id", organizationId)
                 .tag("within_sla", String.valueOf(withinSLA))
                 .register(meterRegistry)
-                .record(responseTimeMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+                .record(responseTimeMs, TimeUnit.MILLISECONDS);
 
         // Contador de compliance
         Counter.builder("open_finance.sla.compliance")
@@ -205,11 +216,15 @@ public class MicrometerMetricsAspect {
                 .register(meterRegistry)
                 .increment();
 
-        // Gauge para última medição de SLA
+        // Atualizar valores para o gauge
+        lastResponseTime.set(responseTimeMs);
+        lastEndpoint.set(endpoint);
+
         meterRegistry.gauge("open_finance.sla.last_response_time",
-                "endpoint", endpoint,
-                "organization_id", organizationId,
-                responseTimeMs);
+               Tags.of(
+                        "endpoint", endpoint,
+                        "organization_id", organizationId),
+                lastResponseTime, AtomicLong::get);
     }
 
     /**
